@@ -141,8 +141,33 @@ textarea {
   max-width: 260px;
 }
 
-.save-status {
+.data-controls {
   margin-left: auto;
+}
+
+.file-button {
+  display: inline-block;
+  flex: none;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: inherit;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.file-button:hover {
+  border-color: var(--accent);
+}
+
+.file-button:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.save-status {
   color: var(--muted);
   font-size: 13px;
 }

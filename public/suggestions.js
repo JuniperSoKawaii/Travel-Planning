@@ -1,7 +1,7 @@
 // Builds OpenStreetMap Overpass queries for "things to do nearby" and turns
 // the raw response into a short, ranked list.
 
-import { haversineKm } from '../public/conflicts.js';
+import { haversineKm } from './conflicts.js';
 
 export const CATEGORIES = {
   sights: {

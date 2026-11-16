@@ -7,6 +7,10 @@ import {
   sortStops,
   toMinutes,
 } from './conflicts.js';
+import { findSuggestions, geocode } from './services.js';
+import { CATEGORIES } from './suggestions.js';
+
+const STORAGE_KEY = 'travel-planning:v1';
 
 const L = window.L;
 const DAY_COLORS = ['#0f766e', '#7c3aed', '#c2410c', '#1d4ed8', '#be185d', '#4d7c0f', '#b45309'];
@@ -66,13 +70,6 @@ function toast(message) {
   toastTimer = setTimeout(() => (el.hidden = true), 4500);
 }
 
-async function api(url, options) {
-  const response = await fetch(url, options);
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error || `Request failed (${response.status})`);
-  return body;
-}
-
 // ---- State -----------------------------------------------------------------
 
 const activeTrip = () => state.trips.find((t) => t.id === state.activeTripId) || null;
@@ -80,22 +77,21 @@ const tripStops = () => activeTrip()?.stops ?? [];
 const tripDays = () => [...new Set(tripStops().map((s) => s.date))].sort();
 const dayColor = (date) => DAY_COLORS[Math.max(tripDays().indexOf(date), 0) % DAY_COLORS.length];
 
-let saveTimer;
 function persist() {
-  $('#save-status').textContent = 'Saving…';
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(async () => {
-    try {
-      await api('/api/state', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(state),
-      });
-      $('#save-status').textContent = 'All changes saved';
-    } catch (err) {
-      $('#save-status').textContent = `Not saved: ${err.message}`;
-    }
-  }, 300);
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    $('#save-status').textContent = 'Saved in this browser';
+  } catch {
+    $('#save-status').textContent = 'Could not save. Browser storage is full or blocked.';
+  }
+}
+
+function isValidState(value) {
+  return (
+    value &&
+    Array.isArray(value.trips) &&
+    value.trips.every((t) => t && typeof t.id === 'string' && typeof t.name === 'string' && Array.isArray(t.stops))
+  );
 }
 
 function commit() {
@@ -409,7 +405,7 @@ async function lookupAddress() {
   $('#lookup').disabled = true;
   $('#location-status').textContent = 'Looking up address…';
   try {
-    const { results } = await api(`/api/geocode?q=${encodeURIComponent(address)}`);
+    const results = await geocode(address);
     if (!results.length) {
       list.replaceChildren();
       $('#location-status').textContent = 'No match found. Try adding a city or country.';
@@ -457,7 +453,7 @@ async function submitStop(event) {
   if (!coords && values.address) {
     $('#stop-save').disabled = true;
     try {
-      const { results } = await api(`/api/geocode?q=${encodeURIComponent(values.address)}`);
+      const results = await geocode(values.address);
       if (results.length) coords = results[0];
       else warning = 'Saved, but the address could not be found, so it is not on the map.';
     } catch (err) {
@@ -550,13 +546,12 @@ async function searchSuggestions(event) {
   button.disabled = true;
   $('#suggest-status').textContent = 'Searching nearby…';
   try {
-    const params = new URLSearchParams({
+    const results = await findSuggestions({
       lat: anchor.lat,
       lon: anchor.lon,
-      radius: suggestForm.radius.value,
+      radius: Number(suggestForm.radius.value),
       category: suggestForm.category.value,
     });
-    const { results } = await api(`/api/suggestions?${params}`);
     const existing = new Set(tripStops().map((s) => s.name.toLowerCase()));
     ui.suggestions = results.filter((p) => !existing.has(p.name.toLowerCase()));
     ui.suggestDate = anchor.date;
@@ -688,14 +683,47 @@ $('#trip-delete').addEventListener('click', () => {
   commit();
 });
 
-async function init() {
+$('#data-export').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const link = h('a', { href: URL.createObjectURL(blob), download: `travel-planning-${today()}.json` });
+  link.click();
+  URL.revokeObjectURL(link.href);
+});
+$('#data-import').addEventListener('change', async (event) => {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+  let imported;
   try {
-    const [saved, categories] = await Promise.all([api('/api/state'), api('/api/categories')]);
-    state = saved;
-    suggestForm.category.replaceChildren(...categories.map((c) => h('option', { value: c.id }, c.label)));
-  } catch (err) {
-    toast(`Could not load saved trips: ${err.message}`);
+    imported = JSON.parse(await file.text());
+  } catch {
+    imported = null;
   }
+  if (!isValidState(imported)) {
+    toast('That file is not a Travel Planning backup.');
+    return;
+  }
+  if (!confirm(`Replace the trips in this browser with the ${imported.trips.length} trip(s) in "${file.name}"?`)) return;
+  state = imported;
+  if (!state.trips.length) createTrip('My trip');
+  if (!activeTrip()) state.activeTripId = state.trips[0].id;
+  ui.day = 'all';
+  ui.suggestions = [];
+  fillForm(null);
+  commit();
+  toast('Trips imported.');
+});
+
+function init() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (isValidState(saved)) state = saved;
+  } catch {
+    // Start fresh if storage is unavailable or corrupted.
+  }
+  suggestForm.category.replaceChildren(
+    ...Object.entries(CATEGORIES).map(([id, { label }]) => h('option', { value: id }, label))
+  );
   if (!state.trips.length) createTrip('My trip');
   if (!activeTrip()) state.activeTripId = state.trips[0].id;
   fillForm(null);

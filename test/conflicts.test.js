@@ -7,7 +7,7 @@ import {
   findFreeSlot,
   haversineKm,
 } from '../public/conflicts.js';
-import { buildOverpassQuery, parseOverpass } from '../lib/suggestions.js';
+import { buildOverpassQuery, parseOverpass } from '../public/suggestions.js';
 
 const stop = (id, start, end, extra = {}) => ({
   id,

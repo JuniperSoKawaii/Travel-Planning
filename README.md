@@ -3,7 +3,16 @@
 A local web app for planning trips: see your stops on a map, build an hourly
 itinerary that checks itself for conflicts, and find nearby things to add.
 
-## Getting started
+## Use it online
+
+The app is published with GitHub Pages at
+https://junipersokawaii.github.io/Travel-Planning/ and redeploys automatically
+whenever `main` changes (see `.github/workflows/deploy.yml`).
+
+One-time setup: in the repository's **Settings → Pages**, set **Source** to
+**GitHub Actions**.
+
+## Run it locally
 
 Requires Node.js 22 or later.
 
@@ -33,8 +42,10 @@ Then open http://localhost:3000. Set `PORT` to use a different port.
   into a free slot on that day.
 - **Multiple trips** – create, rename, switch between and delete trips.
 
-Trips are saved automatically to `data/trips.json` on your machine (not
-committed to git).
+Trips are saved automatically in the browser you use, on that device only.
+They are never uploaded anywhere, so they do not follow you to another browser
+or device, and clearing the browser's site data removes them. Use **Export** to
+download a backup file and **Import** to load it elsewhere.
 
 ## Data sources
 
@@ -53,8 +64,9 @@ These are shared public services intended for light personal use.
 npm test
 ```
 
-- `server.js` – Express server: saved trips, address lookup and suggestions.
-- `lib/suggestions.js` – builds and parses the nearby-places queries.
-- `public/conflicts.js` – conflict detection and scheduling helpers, shared by
-  the browser and the tests.
 - `public/app.js`, `public/index.html`, `public/styles.css` – the interface.
+- `public/conflicts.js` – conflict detection and scheduling helpers.
+- `public/suggestions.js` – builds and parses the nearby-places queries.
+- `public/services.js` – address lookup and suggestion requests.
+- `server.js` – small static server for local preview.
+- `test/` – unit tests for the scheduling and suggestion logic.

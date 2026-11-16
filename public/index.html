@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Travel Planning</title>
-    <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="topbar">
@@ -16,6 +16,13 @@
         <button id="trip-new" type="button">New trip</button>
         <button id="trip-rename" type="button">Rename</button>
         <button id="trip-delete" type="button" class="danger-text">Delete</button>
+      </div>
+      <div class="trip-controls data-controls">
+        <button id="data-export" type="button" title="Download all trips as a backup file">Export</button>
+        <label class="file-button" title="Load trips from a backup file">
+          Import
+          <input id="data-import" type="file" accept="application/json,.json" class="sr-only" />
+        </label>
       </div>
       <span id="save-status" class="save-status" aria-live="polite"></span>
     </header>
@@ -111,7 +118,7 @@
 
     <div id="toast" class="toast" role="status" hidden></div>
 
-    <script src="/vendor/leaflet/leaflet.js"></script>
-    <script type="module" src="/app.js"></script>
+    <script src="vendor/leaflet/leaflet.js"></script>
+    <script type="module" src="app.js"></script>
   </body>
 </html>
