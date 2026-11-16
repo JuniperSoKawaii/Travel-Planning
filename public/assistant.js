@@ -1,7 +1,7 @@
 // Talks to Claude from the browser with the user's own Anthropic API key and
 // runs the tool loop that lets Claude edit the trip.
 
-import Anthropic from './vendor/anthropic.js';
+import Anthropic from '@anthropic-ai/sdk';
 import { TOOLS, describeTrip, executeTool, validateInput } from './assistant-tools.js';
 
 export const MODEL = 'claude-opus-5-5';
@@ -40,6 +40,7 @@ How to work:
 - Every result from adding or changing a stop lists the conflicts that stop is now part of. Resolve the ones you caused before you finish, unless the user asked for that overlap.
 - Give each stop an address a map search can find, including the city. For a place that find_nearby returned, pass its coordinates instead.
 - Use web search when the answer depends on current facts, such as opening hours, closures, ticket rules or events on the travel dates. Do not use it for things you already know well.
+- The user may attach files such as booking confirmations, tickets, screenshots or notes. Read the details from them (names, addresses, dates, times, reference numbers) instead of asking the user to retype them, and put reference numbers in the stop's notes.
 - Do not remove or rewrite stops the user did not ask you to touch.
 
 Your replies appear in a narrow chat panel that shows plain text only, so write short plain sentences without Markdown, headings or tables. Say what you changed and mention anything the user should double-check; the itinerary itself is already on screen, so there is no need to list it back.`;
@@ -51,6 +52,58 @@ function stateBlock(trip) {
   const today = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   const weekday = now.toLocaleDateString('en-US', { weekday: 'long' });
   return `<trip_state>\nToday: ${today} (${weekday})\n${JSON.stringify(describeTrip(trip), null, 1)}\n</trip_state>`;
+}
+
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const TEXT_EXTENSIONS = /\.(txt|md|csv|json|ics|eml|html?)$/i;
+const MB = 1024 * 1024;
+export const MAX_ATTACHMENTS = 5;
+export const ATTACHMENT_ACCEPT = [...IMAGE_TYPES, 'application/pdf', 'text/*', '.md', '.csv', '.json', '.ics', '.eml'].join(',');
+
+function readAs(file, method) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error(`Could not read "${file.name}".`));
+    reader[method](file);
+  });
+}
+
+// Turns a File into { name, block } where block is the content block sent to
+// Claude. Throws an Error with a user-facing message for files that cannot be
+// sent; files are never cut down to fit.
+export async function readAttachment(file) {
+  const base64 = async () => (await readAs(file, 'readAsDataURL')).split(',')[1];
+  if (IMAGE_TYPES.includes(file.type)) {
+    if (file.size > 5 * MB) throw new Error(`"${file.name}" is larger than the 5 MB limit for images.`);
+    return {
+      name: file.name,
+      block: { type: 'image', source: { type: 'base64', media_type: file.type, data: await base64() } },
+    };
+  }
+  if (file.type === 'application/pdf') {
+    if (file.size > 20 * MB) throw new Error(`"${file.name}" is larger than the 20 MB limit for PDFs.`);
+    return {
+      name: file.name,
+      block: {
+        type: 'document',
+        title: file.name,
+        source: { type: 'base64', media_type: 'application/pdf', data: await base64() },
+      },
+    };
+  }
+  if (file.type.startsWith('text/') || file.type === 'application/json' || TEXT_EXTENSIONS.test(file.name)) {
+    if (file.size > 1 * MB) throw new Error(`"${file.name}" is larger than the 1 MB limit for text files.`);
+    return {
+      name: file.name,
+      block: {
+        type: 'document',
+        title: file.name,
+        source: { type: 'text', media_type: 'text/plain', data: await readAs(file, 'readAsText') },
+      },
+    };
+  }
+  throw new Error(`"${file.name}" is not a supported type. Attach images (JPEG, PNG, GIF, WebP), PDFs or text files.`);
 }
 
 export function describeError(err) {
@@ -85,15 +138,17 @@ export function createConversation({ apiKey, getTrip, services }) {
   let useFallbacks = true;
 
   // Sends one user message and runs until Claude finishes its turn.
+  // attachments: files from readAttachment(), sent ahead of the text.
   // handlers: { onText(delta), onActivity(line), onChange() }
   // Resolves to { status: 'done' | 'stopped' | 'refused' | 'truncated' | 'limit' }.
-  async function send(text, handlers) {
+  async function send(text, attachments, handlers) {
     const checkpoint = messages.length;
     stopped = false;
     messages.push({
       role: 'user',
       content: [
         { type: 'text', text: stateBlock(getTrip()) },
+        ...attachments.map((file) => file.block),
         { type: 'text', text },
       ],
     });

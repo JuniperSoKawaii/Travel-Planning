@@ -43,7 +43,7 @@
         </div>
 
         <div class="tab-body" data-panel="stop" hidden>
-          <form id="stop-form" autocomplete="off">
+          <form id="stop-form" autocomplete="off" onsubmit="return false">
             <label>
               Destination name
               <input name="name" required placeholder="e.g. Louvre Museum" />
@@ -85,7 +85,7 @@
         </div>
 
         <div class="tab-body" data-panel="suggest" hidden>
-          <form id="suggest-form">
+          <form id="suggest-form" onsubmit="return false">
             <label>
               Near
               <select name="anchor"></select>
@@ -112,7 +112,7 @@
         </div>
         <div class="tab-body chat-panel" data-panel="claude" hidden>
           <div id="key-setup">
-            <form id="key-form" autocomplete="off">
+            <form id="key-form" autocomplete="off" onsubmit="return false">
               <p class="hint">
                 Claude can plan days, fix conflicts and suggest places by editing this trip
                 directly. It runs on your own Anthropic account, so it needs an API key from the
@@ -136,10 +136,16 @@
             <div id="chat-log" class="chat-log" aria-live="polite"></div>
             <p id="chat-empty" class="hint chat-empty">
               Try "Plan a relaxed Saturday in Lisbon", "Fix my conflicts", or "Find a lunch spot
-              near the museum". Claude sees this trip and changes it as you watch.
+              near the museum". You can attach booking confirmations, tickets or screenshots with the
+              + button. Claude sees this trip and changes it as you watch.
             </p>
             <button type="button" id="chat-undo" hidden>Undo Claude's last changes</button>
-            <form id="chat-form" class="chat-form">
+            <ul id="chat-files" class="chat-files"></ul>
+            <form id="chat-form" class="chat-form" onsubmit="return false">
+              <label class="file-button attach" title="Attach images, PDFs or text files">
+                <span aria-hidden="true">+</span><span class="sr-only">Attach files</span>
+                <input id="chat-attach" type="file" multiple class="sr-only" />
+              </label>
               <label class="sr-only" for="chat-message">Message to Claude</label>
               <textarea id="chat-message" name="message" rows="2" placeholder="Ask Claude to plan or fix something…"></textarea>
               <button type="submit" class="primary" id="chat-send">Send</button>

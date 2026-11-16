@@ -62,6 +62,11 @@ to that account; you can set a spend limit there.
   remove stops, search nearby places, and search the web for current facts
   such as opening hours. **Undo Claude's last changes** restores the trip to
   how it was before its latest reply.
+- Use the **+** button (or paste) to attach up to five files per message:
+  images (JPEG, PNG, GIF, WebP, up to 5 MB), PDFs (up to 20 MB) and text
+  files (up to 1 MB), such as booking confirmations or screenshots. Attached
+  files are sent to Anthropic and stay part of the conversation, so they are
+  re-sent, and billed, with each later message until you start a new chat.
 - It uses the `claude-opus-5-5` model. If a request is declined, the API may
   re-run it on a fallback model (server-side fallbacks are enabled).
 
@@ -88,7 +93,8 @@ npm test
 - `public/services.js` – address lookup and suggestion requests.
 - `public/assistant.js` – the conversation with Claude (Anthropic SDK).
 - `public/assistant-tools.js` – the actions Claude can take on a trip.
-- `scripts/build.mjs` – bundles Leaflet and the Anthropic SDK into
-  `public/vendor/` (run by `npm start` and by the deploy).
-- `server.js` – small static server for local preview.
+- `scripts/build.mjs` – builds the site into `dist/`: one bundled script
+  (app plus Anthropic SDK), the stylesheet and Leaflet, with versioned links
+  so browsers never mix old and new files. Run by `npm start` and the deploy.
+- `server.js` – small static server that previews `dist/` locally.
 - `test/` – unit tests for the scheduling, suggestion and assistant logic.

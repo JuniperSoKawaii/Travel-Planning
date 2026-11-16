@@ -7,7 +7,16 @@ import {
   sortStops,
   toMinutes,
 } from './conflicts.js';
-import { clearKey, createConversation, describeError, loadKey, saveKey } from './assistant.js';
+import {
+  ATTACHMENT_ACCEPT,
+  MAX_ATTACHMENTS,
+  clearKey,
+  createConversation,
+  describeError,
+  loadKey,
+  readAttachment,
+  saveKey,
+} from './assistant.js';
 import { findSuggestions, geocode } from './services.js';
 import { CATEGORIES } from './suggestions.js';
 
@@ -616,6 +625,47 @@ function addSuggestion(place) {
 const chatForm = $('#chat-form');
 const chatLog = $('#chat-log');
 let conversation = null;
+let attachments = []; // files waiting to go out with the next message
+$('#chat-attach').accept = ATTACHMENT_ACCEPT;
+
+function renderAttachments() {
+  $('#chat-files').replaceChildren(
+    ...attachments.map((file) =>
+      h(
+        'li',
+        {},
+        h('span', { class: 'file-name' }, file.name),
+        h(
+          'button',
+          {
+            type: 'button',
+            'aria-label': `Remove ${file.name}`,
+            onclick: () => {
+              attachments = attachments.filter((f) => f !== file);
+              renderAttachments();
+            },
+          },
+          '×'
+        )
+      )
+    )
+  );
+}
+
+async function addFiles(files) {
+  for (const file of files) {
+    if (attachments.length >= MAX_ATTACHMENTS) {
+      toast(`You can attach up to ${MAX_ATTACHMENTS} files per message.`);
+      break;
+    }
+    try {
+      attachments.push(await readAttachment(file));
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+  renderAttachments();
+}
 
 function renderAssistant() {
   const hasKey = Boolean(loadKey());
@@ -630,6 +680,8 @@ function resetChat() {
   conversation?.stop();
   conversation = null;
   chatLog.replaceChildren();
+  attachments = [];
+  renderAttachments();
   ui.undo = null;
 }
 
@@ -646,7 +698,8 @@ async function submitChat(event) {
     conversation?.stop();
     return;
   }
-  const text = chatForm.message.value.trim();
+  const sending = attachments;
+  const text = chatForm.message.value.trim() || (sending.length ? 'Please look at the attached files.' : '');
   if (!text) return;
 
   // Pin the conversation to the trip it started on.
@@ -660,7 +713,10 @@ async function submitChat(event) {
   const talkingTo = conversation;
 
   chatForm.message.value = '';
-  chatLine('chat-user', text);
+  attachments = [];
+  renderAttachments();
+  const bubble = chatLine('chat-user', text);
+  if (sending.length) bubble.append(h('span', { class: 'files' }, `Attached: ${sending.map((f) => f.name).join(', ')}`));
   const waiting = chatLine('chat-status', 'Claude is thinking…');
   const before = structuredClone(getTrip().stops);
   let changed = false;
@@ -671,7 +727,7 @@ async function submitChat(event) {
 
   let note = '';
   try {
-    const { status } = await talkingTo.send(text, {
+    const { status } = await talkingTo.send(text, sending, {
       onText(delta) {
         waiting.remove();
         paragraph ||= chatLine('chat-claude', '');
@@ -696,6 +752,11 @@ async function submitChat(event) {
     }[status];
   } catch (err) {
     note = describeError(err);
+    // Nothing was delivered, so give the files back for another try.
+    if (conversation === talkingTo && !attachments.length) {
+      attachments = sending;
+      renderAttachments();
+    }
   } finally {
     waiting.remove();
     ui.claudeBusy = false;
@@ -712,6 +773,16 @@ chatForm.message.addEventListener('keydown', (event) => {
     event.preventDefault();
     chatForm.requestSubmit();
   }
+});
+$('#chat-attach').addEventListener('change', (event) => {
+  addFiles([...event.target.files]);
+  event.target.value = '';
+});
+chatForm.message.addEventListener('paste', (event) => {
+  const files = [...event.clipboardData.files];
+  if (!files.length) return;
+  event.preventDefault();
+  addFiles(files);
 });
 $('#chat-undo').addEventListener('click', () => {
   const trip = state.trips.find((t) => t.id === ui.undo?.tripId);
