@@ -28,8 +28,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - name: Bundle the map library with the site
-        run: mkdir -p public/vendor && cp -r node_modules/leaflet/dist public/vendor/leaflet
+      - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
           path: public

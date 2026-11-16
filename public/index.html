@@ -33,6 +33,7 @@
           <button role="tab" data-tab="itinerary" aria-selected="true">Itinerary</button>
           <button role="tab" data-tab="stop" id="tab-stop">Add stop</button>
           <button role="tab" data-tab="suggest">Suggestions</button>
+          <button role="tab" data-tab="claude">Claude</button>
         </nav>
 
         <div class="tab-body" data-panel="itinerary">
@@ -108,6 +109,46 @@
           </form>
           <p id="suggest-status" class="hint"></p>
           <ul id="suggest-results" class="suggest-results"></ul>
+        </div>
+        <div class="tab-body chat-panel" data-panel="claude" hidden>
+          <div id="key-setup">
+            <form id="key-form" autocomplete="off">
+              <p class="hint">
+                Claude can plan days, fix conflicts and suggest places by editing this trip
+                directly. It runs on your own Anthropic account, so it needs an API key from the
+                <a href="https://platform.claude.com/settings/keys" target="_blank" rel="noopener noreferrer">Claude Console</a>.
+                Usage is billed to that account.
+              </p>
+              <label>
+                Anthropic API key
+                <input name="key" type="password" placeholder="sk-ant-…" required />
+              </label>
+              <p class="hint">
+                The key is stored only in this browser and sent only to Anthropic. It is not
+                included in exported backups. Avoid saving it on a shared computer.
+              </p>
+              <p id="key-error" class="error" role="alert"></p>
+              <button type="submit" class="primary">Save key</button>
+            </form>
+          </div>
+
+          <div id="chat" class="chat" hidden>
+            <div id="chat-log" class="chat-log" aria-live="polite"></div>
+            <p id="chat-empty" class="hint chat-empty">
+              Try "Plan a relaxed Saturday in Lisbon", "Fix my conflicts", or "Find a lunch spot
+              near the museum". Claude sees this trip and changes it as you watch.
+            </p>
+            <button type="button" id="chat-undo" hidden>Undo Claude's last changes</button>
+            <form id="chat-form" class="chat-form">
+              <label class="sr-only" for="chat-message">Message to Claude</label>
+              <textarea id="chat-message" name="message" rows="2" placeholder="Ask Claude to plan or fix something…"></textarea>
+              <button type="submit" class="primary" id="chat-send">Send</button>
+            </form>
+            <p class="hint chat-footer">
+              <button type="button" class="link" id="chat-clear">New chat</button>
+              <button type="button" class="link" id="key-remove">Remove API key</button>
+            </p>
+          </div>
         </div>
       </section>
 

@@ -7,6 +7,7 @@ import {
   sortStops,
   toMinutes,
 } from './conflicts.js';
+import { clearKey, createConversation, describeError, loadKey, saveKey } from './assistant.js';
 import { findSuggestions, geocode } from './services.js';
 import { CATEGORIES } from './suggestions.js';
 
@@ -25,6 +26,8 @@ const ui = {
   suggestions: [],
   suggestDate: null,
   fitKey: '',
+  claudeBusy: false,
+  undo: null, // { tripId, stops } from before Claude's last changes
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -95,6 +98,8 @@ function isValidState(value) {
 }
 
 function commit() {
+  // A manual edit makes the saved "before Claude" snapshot stale.
+  if (!ui.claudeBusy) ui.undo = null;
   persist();
   render();
 }
@@ -606,6 +611,146 @@ function addSuggestion(place) {
   );
 }
 
+// ---- Claude assistant --------------------------------------------------------
+
+const chatForm = $('#chat-form');
+const chatLog = $('#chat-log');
+let conversation = null;
+
+function renderAssistant() {
+  const hasKey = Boolean(loadKey());
+  $('#key-setup').hidden = hasKey;
+  $('#chat').hidden = !hasKey;
+  $('#chat-undo').hidden = !ui.undo || ui.claudeBusy;
+  $('#chat-send').textContent = ui.claudeBusy ? 'Stop' : 'Send';
+  $('#chat-empty').hidden = chatLog.childElementCount > 0;
+}
+
+function resetChat() {
+  conversation?.stop();
+  conversation = null;
+  chatLog.replaceChildren();
+  ui.undo = null;
+}
+
+function chatLine(cls, text) {
+  const line = h('div', { class: cls }, text);
+  chatLog.append(line);
+  chatLog.scrollTop = chatLog.scrollHeight;
+  return line;
+}
+
+async function submitChat(event) {
+  event.preventDefault();
+  if (ui.claudeBusy) {
+    conversation?.stop();
+    return;
+  }
+  const text = chatForm.message.value.trim();
+  if (!text) return;
+
+  // Pin the conversation to the trip it started on.
+  const tripId = state.activeTripId;
+  const getTrip = () => state.trips.find((t) => t.id === tripId);
+  conversation ||= createConversation({
+    apiKey: loadKey(),
+    getTrip,
+    services: { geocode, findSuggestions, newId: uid },
+  });
+  const talkingTo = conversation;
+
+  chatForm.message.value = '';
+  chatLine('chat-user', text);
+  const waiting = chatLine('chat-status', 'Claude is thinking…');
+  const before = structuredClone(getTrip().stops);
+  let changed = false;
+  let paragraph = null;
+  ui.claudeBusy = true;
+  ui.undo = null;
+  renderAssistant();
+
+  let note = '';
+  try {
+    const { status } = await talkingTo.send(text, {
+      onText(delta) {
+        waiting.remove();
+        paragraph ||= chatLine('chat-claude', '');
+        paragraph.textContent += delta;
+        chatLog.scrollTop = chatLog.scrollHeight;
+      },
+      onActivity(line) {
+        waiting.remove();
+        paragraph = null;
+        chatLine('chat-activity', line);
+      },
+      onChange() {
+        changed = true;
+        commit();
+      },
+    });
+    note = {
+      stopped: 'Stopped. Changes made so far were kept.',
+      refused: 'Claude declined this request.',
+      truncated: 'The reply was cut off. Ask Claude to continue.',
+      limit: 'Claude paused after many steps. Ask it to continue if there is more to do.',
+    }[status];
+  } catch (err) {
+    note = describeError(err);
+  } finally {
+    waiting.remove();
+    ui.claudeBusy = false;
+    // Only offer undo if this chat was not reset while Claude was working.
+    if (changed && conversation === talkingTo) ui.undo = { tripId, stops: before };
+    if (note && conversation === talkingTo) chatLine('chat-status', note);
+    render();
+  }
+}
+
+chatForm.addEventListener('submit', submitChat);
+chatForm.message.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+    event.preventDefault();
+    chatForm.requestSubmit();
+  }
+});
+$('#chat-undo').addEventListener('click', () => {
+  const trip = state.trips.find((t) => t.id === ui.undo?.tripId);
+  if (!trip) return;
+  trip.stops = ui.undo.stops;
+  ui.undo = null;
+  commit();
+  chatLine('chat-status', "Claude's last changes were undone.");
+});
+$('#chat-clear').addEventListener('click', () => {
+  resetChat();
+  render();
+});
+$('#key-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const key = event.target.key.value.trim();
+  const error = $('#key-error');
+  if (!key || /\s/.test(key)) {
+    error.textContent = 'Paste the whole key, with no spaces.';
+    return;
+  }
+  try {
+    saveKey(key);
+  } catch {
+    error.textContent = 'This browser would not store the key. Check that site storage is allowed.';
+    return;
+  }
+  error.textContent = '';
+  event.target.reset();
+  render();
+  chatForm.message.focus();
+});
+$('#key-remove').addEventListener('click', () => {
+  if (!confirm('Remove your Anthropic API key from this browser?')) return;
+  clearKey();
+  resetChat();
+  render();
+});
+
 // ---- Trips -----------------------------------------------------------------
 
 function renderTrips() {
@@ -629,6 +774,7 @@ function render() {
   );
   renderSuggestControls();
   renderSuggestions();
+  renderAssistant();
 }
 
 // ---- Wiring ----------------------------------------------------------------
@@ -651,6 +797,7 @@ $('#stop-cancel').addEventListener('click', () => {
 suggestForm.addEventListener('submit', searchSuggestions);
 
 $('#trip-select').addEventListener('change', (event) => {
+  resetChat();
   state.activeTripId = event.target.value;
   ui.day = 'all';
   ui.suggestions = [];
@@ -660,6 +807,7 @@ $('#trip-select').addEventListener('change', (event) => {
 $('#trip-new').addEventListener('click', () => {
   const name = prompt('Name for the new trip:', 'New trip')?.trim();
   if (!name) return;
+  resetChat();
   createTrip(name);
   fillForm(null);
   commit();
@@ -674,6 +822,7 @@ $('#trip-rename').addEventListener('click', () => {
 $('#trip-delete').addEventListener('click', () => {
   const trip = activeTrip();
   if (!confirm(`Delete "${trip.name}" and all of its stops?`)) return;
+  resetChat();
   state.trips = state.trips.filter((t) => t.id !== trip.id);
   if (state.trips.length) state.activeTripId = state.trips[0].id;
   else createTrip('My trip');
@@ -704,6 +853,7 @@ $('#data-import').addEventListener('change', async (event) => {
     return;
   }
   if (!confirm(`Replace the trips in this browser with the ${imported.trips.length} trip(s) in "${file.name}"?`)) return;
+  resetChat();
   state = imported;
   if (!state.trips.length) createTrip('My trip');
   if (!activeTrip()) state.activeTripId = state.trips[0].id;

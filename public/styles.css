@@ -226,7 +226,8 @@ textarea {
 
 .tabs button {
   flex: 1;
-  padding: 11px 8px;
+  padding: 11px 4px;
+  font-size: 14px;
   border: 0;
   border-bottom: 3px solid transparent;
   border-radius: 0;
@@ -522,6 +523,102 @@ label {
 }
 
 .suggest-results a {
+  color: var(--accent);
+}
+
+/* ---- Claude chat ---- */
+
+.chat-panel:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+}
+
+.chat {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat[hidden] {
+  display: none;
+}
+
+.chat-log {
+  flex: 1;
+  min-height: 120px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-log:empty {
+  display: none;
+}
+
+.chat-empty {
+  flex: 1;
+}
+
+.chat-user,
+.chat-claude {
+  max-width: 92%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.chat-claude {
+  align-self: flex-start;
+  background: var(--surface-2);
+}
+
+.chat-activity,
+.chat-status {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.chat-activity::before {
+  content: '✓ ';
+  color: var(--accent);
+}
+
+.chat-form {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.chat-form textarea {
+  flex: 1;
+  resize: none;
+}
+
+.chat-footer {
+  display: flex;
+  justify-content: space-between;
+}
+
+button.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  text-decoration: underline;
+}
+
+.hint a {
   color: var(--accent);
 }
 

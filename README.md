@@ -40,12 +40,30 @@ Then open http://localhost:3000. Set `PORT` to use a different port.
 - **Suggestions** – search around any located stop for sights, museums,
   restaurants, cafés, parks, nightlife or shopping, and add a result straight
   into a free slot on that day.
+- **Claude assistant** – a chat tab where Claude plans days, fixes conflicts
+  and suggests places by editing the trip directly. See below.
 - **Multiple trips** – create, rename, switch between and delete trips.
 
 Trips are saved automatically in the browser you use, on that device only.
 They are never uploaded anywhere, so they do not follow you to another browser
 or device, and clearing the browser's site data removes them. Use **Export** to
 download a backup file and **Import** to load it elsewhere.
+
+## Claude assistant
+
+The **Claude** tab needs your own Anthropic API key from the
+[Claude Console](https://platform.claude.com/settings/keys). Usage is billed
+to that account; you can set a spend limit there.
+
+- The key is stored only in the browser you enter it in and is sent only to
+  Anthropic. It is never committed, and it is not included in exported
+  backups. Do not save it on a shared computer.
+- Claude sees the current trip with each message and can add, change and
+  remove stops, search nearby places, and search the web for current facts
+  such as opening hours. **Undo Claude's last changes** restores the trip to
+  how it was before its latest reply.
+- It uses the `claude-opus-5-5` model. If a request is declined, the API may
+  re-run it on a fallback model (server-side fallbacks are enabled).
 
 ## Data sources
 
@@ -68,5 +86,9 @@ npm test
 - `public/conflicts.js` – conflict detection and scheduling helpers.
 - `public/suggestions.js` – builds and parses the nearby-places queries.
 - `public/services.js` – address lookup and suggestion requests.
+- `public/assistant.js` – the conversation with Claude (Anthropic SDK).
+- `public/assistant-tools.js` – the actions Claude can take on a trip.
+- `scripts/build.mjs` – bundles Leaflet and the Anthropic SDK into
+  `public/vendor/` (run by `npm start` and by the deploy).
 - `server.js` – small static server for local preview.
-- `test/` – unit tests for the scheduling and suggestion logic.
+- `test/` – unit tests for the scheduling, suggestion and assistant logic.
