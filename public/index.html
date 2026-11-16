@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Travel Planning</title>
+    <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>Travel Planning</h1>
+      <div class="trip-controls">
+        <label class="sr-only" for="trip-select">Trip</label>
+        <select id="trip-select"></select>
+        <button id="trip-new" type="button">New trip</button>
+        <button id="trip-rename" type="button">Rename</button>
+        <button id="trip-delete" type="button" class="danger-text">Delete</button>
+      </div>
+      <span id="save-status" class="save-status" aria-live="polite"></span>
+    </header>
+
+    <main class="layout">
+      <section class="panel">
+        <nav class="tabs" role="tablist">
+          <button role="tab" data-tab="itinerary" aria-selected="true">Itinerary</button>
+          <button role="tab" data-tab="stop" id="tab-stop">Add stop</button>
+          <button role="tab" data-tab="suggest">Suggestions</button>
+        </nav>
+
+        <div class="tab-body" data-panel="itinerary">
+          <div id="day-chips" class="chips"></div>
+          <div id="conflicts"></div>
+          <div id="itinerary"></div>
+        </div>
+
+        <div class="tab-body" data-panel="stop" hidden>
+          <form id="stop-form" autocomplete="off">
+            <label>
+              Destination name
+              <input name="name" required placeholder="e.g. Louvre Museum" />
+            </label>
+            <label>
+              Address
+              <span class="row">
+                <input name="address" placeholder="Street, city, or place name" />
+                <button type="button" id="lookup">Look up</button>
+              </span>
+            </label>
+            <ul id="lookup-results" class="lookup-results"></ul>
+            <p id="location-status" class="hint"></p>
+            <label>
+              Date
+              <input name="date" type="date" required />
+            </label>
+            <div class="row">
+              <label>
+                Start
+                <input name="start" type="time" required />
+              </label>
+              <label>
+                End
+                <input name="end" type="time" required />
+              </label>
+            </div>
+            <label>
+              Notes
+              <textarea name="notes" rows="3" placeholder="Tickets, booking numbers, reminders…"></textarea>
+            </label>
+            <p id="form-error" class="error" role="alert"></p>
+            <div class="row actions">
+              <button type="submit" class="primary" id="stop-save">Add to itinerary</button>
+              <button type="button" id="stop-cancel">Cancel</button>
+              <button type="button" id="stop-delete" class="danger-text" hidden>Delete stop</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="tab-body" data-panel="suggest" hidden>
+          <form id="suggest-form">
+            <label>
+              Near
+              <select name="anchor"></select>
+            </label>
+            <div class="row">
+              <label>
+                Looking for
+                <select name="category"></select>
+              </label>
+              <label>
+                Within
+                <select name="radius">
+                  <option value="500">500 m</option>
+                  <option value="1000" selected>1 km</option>
+                  <option value="2000">2 km</option>
+                  <option value="5000">5 km</option>
+                </select>
+              </label>
+            </div>
+            <button type="submit" class="primary">Find suggestions</button>
+          </form>
+          <p id="suggest-status" class="hint"></p>
+          <ul id="suggest-results" class="suggest-results"></ul>
+        </div>
+      </section>
+
+      <section class="map-wrap">
+        <div id="map"></div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" hidden></div>
+
+    <script src="/vendor/leaflet/leaflet.js"></script>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
